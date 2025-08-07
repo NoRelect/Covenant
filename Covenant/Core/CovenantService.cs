@@ -4192,9 +4192,9 @@ public static class Task
                 // _notifier.OnCreateHostedFile(this, hostedFile);
                 return await this.GetHostedFile(hostedFile.Id);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                throw new ControllerBadRequestException($"BadRequest - Error hosting file at path: {file.Path}");
+                throw new ControllerBadRequestException($"BadRequest - Error hosting file at path: {file.Path} ({ex})");
             }
         }
 

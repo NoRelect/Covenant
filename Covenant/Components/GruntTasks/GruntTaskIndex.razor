@@ -7,7 +7,6 @@
 @using System.IO
 @using Microsoft.JSInterop
 
-@using BlazorInputFile
 @using YamlDotNet.Serialization
 
 @using Covenant.Core
@@ -16,6 +15,7 @@
 @using Covenant.Components.EmbeddedResources
 @using Covenant.Components.ReferenceAssemblies
 @using Covenant.Components.ReferenceSourceLibraries
+@using Microsoft.AspNetCore.Components.Forms
 @inject INotificationService INotificationService
 @inject IJSRuntime IJSRuntime
 
@@ -128,45 +128,43 @@
 
     public void Dispose()
     {
-        this.INotificationService.OnCreateGruntTask -= OnCreateGruntTask;
+        INotificationService.OnCreateGruntTask -= OnCreateGruntTask;
     }
 
     private void OnCreateGruntTask(object sender, GruntTask task)
     {
-        this.GruntTasks.Add(task);
-        this.InvokeAsync(() => this.StateHasChanged());
+        GruntTasks.Add(task);
+        InvokeAsync(() => StateHasChanged());
     }
 
     private string ErrorMessage { get; set; }
     private List<GruntTask> ImportedTasks { get; set; } = null;
-    private async Task OnUploadImport(IFileListEntry[] files)
+    private async Task OnUploadImport(InputFileChangeEventArgs args)
     {
         try
         {
-            IFileListEntry file = files.FirstOrDefault();
-            if (file != null)
-            {
-                MemoryStream ms = new MemoryStream();
-                await file.Data.CopyToAsync(ms);
-                string yaml = Common.CovenantEncoding.GetString(ms.ToArray());
-                IDeserializer deserializer = new DeserializerBuilder().Build();
-                List<SerializedGruntTask> serialized = deserializer.Deserialize<List<SerializedGruntTask>>(yaml);
-                this.ImportedTasks = serialized.Select(S => new GruntTask().FromSerializedGruntTask(S)).ToList();
-            }
+            var file = args.File;
+            using var ms = new MemoryStream();
+            await using var stream = file.OpenReadStream();
+            await stream.CopyToAsync(ms);
+            var yaml = Common.CovenantEncoding.GetString(ms.ToArray());
+            var deserializer = new DeserializerBuilder().Build();
+            var serialized = deserializer.Deserialize<List<SerializedGruntTask>>(yaml);
+            ImportedTasks = serialized.Select(s => new GruntTask().FromSerializedGruntTask(s)).ToList();
         }
         catch (Exception e)
         {
-            this.ErrorMessage = e.Message;
-            this.StateHasChanged();
+            ErrorMessage = e.Message;
+            StateHasChanged();
         }
     }
 
     private async Task OnImport()
     {
-        if (this.ImportedTasks != null)
+        if (ImportedTasks != null)
         {
-            this.ErrorMessage = "";
-            foreach (GruntTask importedTask in this.ImportedTasks)
+            ErrorMessage = "";
+            foreach (var importedTask in ImportedTasks)
             {
                 try
                 {
@@ -174,11 +172,11 @@
                 }
                 catch (Exception e)
                 {
-                    this.ErrorMessage += e.Message + Environment.NewLine;
-                    this.StateHasChanged();
+                    ErrorMessage += e.Message + Environment.NewLine;
+                    StateHasChanged();
                 }
             }
-            this.ImportedTasks = null;
+            ImportedTasks = null;
             await _ImportModal.DismissModal();
         }
     }
@@ -187,9 +185,9 @@
     {
         try
         {
-            List<SerializedGruntTask> tasks = this.GruntTasks.Select(GT => GT.ToSerializedGruntTask()).ToList();
-            ISerializer serializer = new SerializerBuilder().Build();
-            string yaml = serializer.Serialize(tasks);
+            var tasks = GruntTasks.Select(gruntTask => gruntTask.ToSerializedGruntTask()).ToList();
+            var serializer = new SerializerBuilder().Build();
+            var yaml = serializer.Serialize(tasks);
             await IJSRuntime.InvokeAsync<string>("DownloadFile", "GruntTasks.yaml", "application/x-yaml", Convert.ToBase64String(Common.CovenantEncoding.GetBytes(yaml)));
         }
         catch (Exception)

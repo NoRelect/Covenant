@@ -2,9 +2,7 @@
 
 @using System.IO
 @using System.Threading
-@using System.Threading.Tasks
 @using Microsoft.AspNetCore.Components.Forms
-@using BlazorInputFile
 @using Covenant.Core
 @using Covenant.Models.Grunts
 
@@ -19,9 +17,9 @@ else
         <div class="form-group col-md-4">
             <label for="GruntTaskId">GruntTask</label>
             <select id="GruntTaskId" name="GruntTaskId" @onchange="(e => OnChangeGruntTask(e))" class="form-control">
-                @foreach (GruntTask task in this.GruntTasks)
+                @foreach (GruntTask task in GruntTasks)
                 {
-                    @if (this.GruntTask.Id == task.Id)
+                    @if (GruntTask.Id == task.Id)
                     {
                         <option selected value="@task.Id">@task.Name</option>
                     }
@@ -33,19 +31,19 @@ else
             </select>
         </div>
         <div>
-            @for (int i = 0; i < this.GruntTask.Options.Count; i++)
+            @for (var i = 0; i < GruntTask.Options.Count; i++)
             {
-                int number = i;
-                @if (this.GruntTask.Options[i].FileOption)
+                var number = i;
+                @if (GruntTask.Options[i].FileOption)
                 {
                     <div class="form-group col-md-12">
                         <label for="@GruntTask.Options[number].Name">@GruntTask.Options[number].Name</label><br />
-                        <InputFile @ref="InputFile" id="@GruntTask.Options[number].Name" OnChange="OnUpload" />
+                        <InputFile @ref="TaskInputFile" id="@GruntTask.Options[number].Name" OnChange="OnUpload" />
                         @if (this.UploadInProgress)
                         {
                             <span class="fe fe-loader spin"></span>
                         }
-                        @if (string.IsNullOrEmpty(this.ErrorMessage))
+                        @if (string.IsNullOrEmpty(ErrorMessage))
                         {
                             <span class="text-danger">@ErrorMessage</span>
                         }
@@ -77,64 +75,62 @@ else
     [Parameter]
     public EventCallback<GruntTask> OnSubmit { get; set; }
 
-    public InputFile InputFile { get; set; }
-    private SemaphoreSlim UploadSemaphore { get; set; } = new SemaphoreSlim(1, 1);
-    private bool UploadInProgress { get; set; } = false;
+    public InputFile TaskInputFile { get; set; }
+    private SemaphoreSlim UploadSemaphore { get; set; } = new(1, 1);
+    private bool UploadInProgress { get; set; }
 
     private IList<GruntTask> GruntTasks { get; set; }
     private GruntTask GruntTask { get; set; }
 
     protected override async Task OnInitializedAsync()
     {
-        this.GruntTasks = (await Service.GetGruntTasksForGrunt(this.GruntId)).OrderBy(GT => GT.Name).ToList();
+        GruntTasks = (await Service.GetGruntTasksForGrunt(GruntId)).OrderBy(gruntTask => gruntTask.Name).ToList();
         Service.DisposeContext();
-        this.GruntTask = this.GruntTasks.First();
+        GruntTask = GruntTasks.First();
     }
 
     private async Task OnTask()
     {
         await UploadSemaphore.WaitAsync();
-        await this.OnSubmit.InvokeAsync(GruntTask);
+        await OnSubmit.InvokeAsync(GruntTask);
         UploadSemaphore.Release();
     }
 
     private void OnChangeGruntTask(ChangeEventArgs e)
     {
-        if (int.TryParse((string)e.Value, out int GruntTaskId))
-        {
-            this.GruntTask = this.GruntTasks.FirstOrDefault(GT => GT.Id == GruntTaskId);
-            this.StateHasChanged();
-        }
+        if (!int.TryParse((string)e.Value, out var gruntTaskId))
+            return;
+        GruntTask = GruntTasks.FirstOrDefault(gruntTask => gruntTask.Id == gruntTaskId);
+        StateHasChanged();
     }
 
     private string ErrorMessage { get; set; }
-    private async Task OnUpload(IFileListEntry[] files)
+    private async Task OnUpload(InputFileChangeEventArgs args)
     {
         try
         {
             await UploadSemaphore.WaitAsync();
-            this.UploadInProgress = true;
-            this.StateHasChanged();
-            for (int i = 0; i < files.Length; i++)
+            UploadInProgress = true;
+            StateHasChanged();
+            var files = args.GetMultipleFiles();
+            var i = 0;
+            foreach (var file in files)
             {
-                if (files[i] != null)
-                {
-                    MemoryStream ms = new MemoryStream();
-                    await files[i].Data.CopyToAsync(ms);
+                using var ms = new MemoryStream();
+                await using var stream = file.OpenReadStream();
+                await stream.CopyToAsync(ms);
 
-                    GruntTaskOption option = this.GruntTask.Options.Where(O => O.FileOption).ToList()[i];
-                    option.Value = Convert.ToBase64String(ms.ToArray());
-
-                    files[i] = null;
-                }
+                var option = GruntTask.Options.Where(o => o.FileOption).ToList()[i];
+                option.Value = Convert.ToBase64String(ms.ToArray());
+                i++;
             }
         }
         catch (Exception e)
         {
-            this.ErrorMessage = e.Message;
+            ErrorMessage = e.Message;
         }
-        this.UploadInProgress = false;
-        this.StateHasChanged();
+        UploadInProgress = false;
+        StateHasChanged();
         UploadSemaphore.Release();
     }
 }

@@ -204,10 +204,7 @@ namespace Covenant
             if (env.EnvironmentName == "Development")
             {
                 app.UseDeveloperExceptionPage();
-                app.UseSwagger(c =>
-                {
-                    c.SerializeAsV2 = true;
-                });
+                app.UseSwagger();
                 app.UseSwaggerUI(c =>
                 {
                     c.SwaggerEndpoint("/swagger/v1/swagger.json", "Covenant API V0.1");

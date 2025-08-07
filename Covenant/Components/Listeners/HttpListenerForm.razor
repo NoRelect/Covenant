@@ -1,9 +1,6 @@
 ﻿@using Microsoft.AspNetCore.Components.Forms
 @using System.IO
-@using System.Linq
 @using Covenant.Models.Listeners
-
-@using BlazorInputFile
 
 <EditForm Model="Listener" OnValidSubmit="OnFormSubmit">
     <DataAnnotationsValidator />
@@ -56,7 +53,7 @@
             @if (number != 0)
             {
                 <div class="col-auto align-self-center">
-                    <button type="button" @onclick="(e => RemoveRow(number))" disabled="@Disabled" class="btn btn-outline-danger btn-sm">
+                    <button type="button" @onclick="(_ => RemoveRow(number))" disabled="@Disabled" class="btn btn-outline-danger btn-sm">
                         <span class="fe fe-x"></span>
                     </button>
                 </div>
@@ -72,7 +69,7 @@
     <div class="form-row">
         <div class="form-group col-md-3">
             <label for="UseSSL">UseSSL</label>
-            <select id="UseSSL" name="UseSSL" @onchange="(e => UpdateUseSSL(e))" disabled="@Disabled" class="form-control form-control-sm">
+            <select id="UseSSL" name="UseSSL" @onchange="UpdateUseSsl" disabled="@Disabled" class="form-control form-control-sm">
                 <option value="False">False</option>
                 <option value="True">True</option>
             </select>
@@ -96,9 +93,9 @@
     <div class="form-group">
         <label for="ProfileId">HttpProfile</label>
         <select id="ProfileId" name="ProfileId" @bind="Listener.ProfileId" class="form-control">
-            @foreach (var Profile in Profiles)
+            @foreach (var profile in Profiles)
             {
-                <option value="@Profile.Id">@Profile.Name</option>
+                <option value="@profile.Id">@profile.Name</option>
             }
         </select>
         <div class="text-danger"><ValidationMessage For="() => Listener.ProfileId" /></div>
@@ -128,12 +125,7 @@
     public EventCallback<HttpListener> OnSubmit { get; set; }
 
     [Parameter]
-    public bool Disabled { get; set; } = false;
-
-    private void UpdateRow(int row, ChangeEventArgs e)
-    {
-        Listener.ConnectAddresses[row] = e.Value.ToString();
-    }
+    public bool Disabled { get; set; }
 
     private void AddRow()
     {
@@ -145,29 +137,25 @@
         Listener.ConnectAddresses.RemoveAt(row);
     }
 
-    private void UpdateUseSSL(ChangeEventArgs e)
+    private void UpdateUseSsl(ChangeEventArgs e)
     {
-        if (bool.TryParse(e.Value.ToString(), out bool result))
+        if (bool.TryParse(e.Value?.ToString() ?? "", out var result))
         {
             Listener.UseSSL = result;
         }
     }
 
-    private async Task FileUpload(IFileListEntry[] files)
+    private async Task FileUpload(InputFileChangeEventArgs args)
     {
-        IFileListEntry file = files.FirstOrDefault();
-        if (file != null)
-        {
-            using (MemoryStream ms = new MemoryStream())
-            {
-                await file.Data.CopyToAsync(ms);
-                Listener.SSLCertificate = Convert.ToBase64String(ms.ToArray());
-            }
-        }
+        var file = args.File;
+        using var ms = new MemoryStream();
+        await using var stream = file.OpenReadStream();
+        await stream.CopyToAsync(ms);
+        Listener.SSLCertificate = Convert.ToBase64String(ms.ToArray());
     }
 
     private async Task OnFormSubmit()
     {
-        await this.OnSubmit.InvokeAsync(this.Listener);
+        await OnSubmit.InvokeAsync(Listener);
     }
 }

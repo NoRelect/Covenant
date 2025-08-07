@@ -1,9 +1,6 @@
 ﻿@using System.IO
-@using Microsoft.JSInterop
 @using Microsoft.AspNetCore.Components.Forms
 @using Covenant.Models.Listeners
-@using BlazorInputFile
-@inject IJSRuntime IJSRuntime
 
 <EditForm Model="HostedFile" OnValidSubmit="OnFormSubmit">
     <DataAnnotationsValidator />
@@ -20,7 +17,7 @@
             <InputFile id="Content" name="Content" class="form-control-file" OnChange="FileUpload" />
         </div>
     </div>
-    <button type="button" class="btn btn-primary" @onclick="(e => OnSubmit.InvokeAsync(HostedFile))">
+    <button type="button" class="btn btn-primary" @onclick="(_ => OnSubmit.InvokeAsync(HostedFile))">
         <span class="fe fe-@SubmitIcon"></span> @SubmitLabel
     </button>
     @ChildContent
@@ -42,21 +39,17 @@
     [Parameter]
     public RenderFragment ChildContent { get; set; }
 
-    private async Task FileUpload(IFileListEntry[] files)
+    private async Task FileUpload(InputFileChangeEventArgs args)
     {
-        IFileListEntry file = files.FirstOrDefault();
-        if (file != null)
-        {
-            using (MemoryStream ms = new MemoryStream())
-            {
-                await file.Data.CopyToAsync(ms);
-                HostedFile.Content = Convert.ToBase64String(ms.ToArray());
-            }
-        }
+        var file = args.File;
+        using var ms = new MemoryStream();
+        await using var stream = file.OpenReadStream();
+        await stream.CopyToAsync(ms);
+        HostedFile.Content = Convert.ToBase64String(ms.ToArray());
     }
 
     private async Task OnFormSubmit()
     {
-        await this.OnSubmit.InvokeAsync(this.HostedFile);
+        await OnSubmit.InvokeAsync(HostedFile);
     }
 }
