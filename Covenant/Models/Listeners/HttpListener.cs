@@ -40,7 +40,9 @@ namespace Covenant.Models.Listeners
     {
         public int Id { get; set; }
         public int ListenerId { get; set; }
+        [Required, StringLength(255, MinimumLength = 1), RegularExpression("^.*\\..*$", ErrorMessage = "Filename must contain an extension")]
         public string Path { get; set; }
+        [Required]
         public string Content { get; set; }
     }
 

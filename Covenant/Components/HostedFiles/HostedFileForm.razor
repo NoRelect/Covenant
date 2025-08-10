@@ -4,10 +4,11 @@
 
 <EditForm Model="HostedFile" OnValidSubmit="OnFormSubmit">
     <DataAnnotationsValidator />
+    <ValidationSummary />
     <div class="form-row">
         <div class="form-group col-md-4">
-            <label for="Path">Path</label>
-            <input id="Path" name="Path" @bind="HostedFile.Path" class="form-control">
+            <label>Path</label>
+            <InputText @bind-Value="HostedFile.Path" class="form-control" />
             <div class="text-danger"><ValidationMessage For="() => HostedFile.Path" /></div>
         </div>
     </div>
@@ -17,7 +18,7 @@
             <InputFile id="Content" name="Content" class="form-control-file" OnChange="FileUpload" />
         </div>
     </div>
-    <button type="button" class="btn btn-primary" @onclick="(_ => OnSubmit.InvokeAsync(HostedFile))">
+    <button type="submit" class="btn btn-primary">
         <span class="fe fe-@SubmitIcon"></span> @SubmitLabel
     </button>
     @ChildContent
